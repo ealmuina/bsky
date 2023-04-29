@@ -50,7 +50,7 @@ jobs:
             
             # Pull new code
             git stash
-            git checkout master
+            git checkout main
             git pull
             
             # Create .env file
