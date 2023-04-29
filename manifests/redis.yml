@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bsky-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bsky
+      component: redis
+  template:
+    metadata:
+      labels:
+        app: bsky
+        component: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: bsky-redis
+spec:
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: 6379
+  selector:
+    app: bsky
+    component: redis

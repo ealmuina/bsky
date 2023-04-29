@@ -1,0 +1,1 @@
+from bsky.celery import app

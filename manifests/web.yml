@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bsky-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bsky
+      component: web
+  template:
+    metadata:
+      labels:
+        app: bsky
+        component: web
+    spec:
+      containers:
+        - name: web
+          image: ealmuina/bsky:latest
+          envFrom:
+            - secretRef:
+                name: bsky-secrets
+          command: [ "./run_web.sh" ]
+          volumeMounts:
+            - mountPath: /app/db
+              name: sqlite-volume
+      volumes:
+        - name: sqlite-volume
+          persistentVolumeClaim:
+            claimName: bsky-sqlite-pvc
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: bsky-web
+spec:
+  type: NodePort
+  ports:
+    - port: 8000
+      targetPort: 8000
+      nodePort: 30001
+  selector:
+    app: bsky
+    component: web

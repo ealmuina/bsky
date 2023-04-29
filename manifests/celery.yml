@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bsky-celery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bsky
+      component: celery
+  template:
+    metadata:
+      labels:
+        app: bsky
+        component: celery
+    spec:
+      containers:
+        - name: celery
+          image: ealmuina/bsky:latest
+          envFrom:
+            - secretRef:
+                name: bsky-secrets
+          command: [ "celery", "-A", "stats.tasks", "worker", "-l", "info" ]
+          volumeMounts:
+            - mountPath: /app/db
+              name: sqlite-volume
+      volumes:
+        - name: sqlite-volume
+          persistentVolumeClaim:
+            claimName: bsky-sqlite-pvc

@@ -1,0 +1,9 @@
+.idea/
+static/CACHE/
+media/
+db/
+logs/
+
+sandbox.py
+secrets.env
+celerybeat-schedule

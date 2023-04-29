@@ -1,0 +1,41 @@
+services:
+  web:
+    env_file:
+      - secrets.env
+    build:
+      context: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    command: python manage.py runserver 0.0.0.0:8000
+  crawler:
+    env_file:
+      - secrets.env
+    build:
+      context: .
+    volumes:
+      - .:/app
+    command: python -u -m stats.crawler
+  bsky-redis:
+    image: redis
+  celery:
+    env_file:
+      - secrets.env
+    build:
+      context: .
+    volumes:
+      - .:/app
+    depends_on:
+      - bsky-redis
+    command: celery -A stats.tasks worker -l info
+  celery-beat:
+    env_file:
+      - secrets.env
+    build:
+      context: .
+    volumes:
+      - .:/app
+    depends_on:
+      - bsky-redis
+    command: celery -A stats.tasks beat -l info

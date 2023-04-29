@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bsky-celery-beat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bsky
+      component: celery-beat
+  template:
+    metadata:
+      labels:
+        app: bsky
+        component: celery-beat
+    spec:
+      containers:
+        - name: celery-beat
+          image: ealmuina/bsky:latest
+          envFrom:
+            - secretRef:
+                name: bsky-secrets
+          command: [ "celery", "-A", "stats.tasks", "beat", "-l", "info" ]
