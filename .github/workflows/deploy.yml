@@ -56,7 +56,7 @@ jobs:
             # Create .env file
             touch secrets.env
             echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" > secrets.env
-            echo "DEBUG=False" >> secrets.env
+            echo "DEBUG=0" >> secrets.env
             echo "BSKY_XRPC_URL=${{ secrets.BSKY_XRPC_URL }}" >> secrets.env
             echo "BSKY_IDENTITY=${{ secrets.BSKY_IDENTITY }}" >> secrets.env
             echo "BSKY_PASSWORD=${{ secrets.BSKY_PASSWORD }}" >> secrets.env
