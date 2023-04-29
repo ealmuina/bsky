@@ -181,7 +181,7 @@ class Crawler:
 
 
 if __name__ == '__main__':
-    logging.basicConfig(filename="logs/crawler.log", level=logging.WARNING)
+    logging.basicConfig(level=logging.WARNING)
 
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "bsky.settings")
     django.setup()

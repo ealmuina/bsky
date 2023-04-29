@@ -4,8 +4,5 @@
 python manage.py migrate
 echo "Migrated DB to latest version"
 
-# Create required directories
-mkdir "logs"
-
 # start development server on public ip interface, on port 8000
 python manage.py runserver 0.0.0.0:8000
