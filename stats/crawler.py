@@ -32,8 +32,8 @@ class Crawler:
         resp = requests.post(
             f"{self.base_url}/com.atproto.server.createSession",
             json={
-                "identifier": "ealmuina.xyz",
-                "password": "hgpz-h3ll-mb77-bkdw",
+                "identifier": os.environ.get("BSKY_IDENTITY"),
+                "password": os.environ.get("BSKY_PASSWORD"),
             }
         )
         self.jwt = resp.json().get("accessJwt")
