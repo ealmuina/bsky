@@ -150,7 +150,11 @@ class Crawler:
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(
+        format="%(asctime)s %(levelname)-8s %(message)s",
+        level=logging.INFO,
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "bsky.settings")
     django.setup()
