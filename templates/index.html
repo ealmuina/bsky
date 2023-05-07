@@ -4,7 +4,7 @@
 {% block title %}Users{% endblock %}
 
 {% block content %}
-    <h1>Daily evolution of the number of users</h1>
+    <h1>Bluesky statistics</h1>
 
     <div id="users_chart" style="width:100%; height:400px;"></div>
 
@@ -15,8 +15,11 @@
                     chart: {
                         type: 'column'
                     },
+                    exporting: {
+                        enabled: true
+                    },
                     title: {
-                        text: ''
+                        text: 'Daily evolution of the number of users'
                     },
                     xAxis: {
                         type: 'datetime',
