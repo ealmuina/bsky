@@ -1,16 +1,18 @@
 import collections
 
 import numpy as np
+from django.db.models import F
+from django.db.models.functions import Coalesce
 from django.shortcuts import render
 
 from stats.models import Actor
 
 
 def index(request):
-    dates = Actor.objects.filter(
-        indexed_at__isnull=False,
+    dates = Actor.objects.annotate(
+        date=Coalesce(F("indexed_at__date"), F("created_at__date"))
     ).values_list(
-        "indexed_at__date", flat=True
+        "date", flat=True
     )
 
     counter = collections.Counter(dates)
