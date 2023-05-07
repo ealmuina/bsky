@@ -13,7 +13,8 @@
             document.addEventListener('DOMContentLoaded', function () {
                 Highcharts.chart('users_chart', {
                     chart: {
-                        type: 'column'
+                        type: 'column',
+                        zoomType: 'x'
                     },
                     exporting: {
                         enabled: true
