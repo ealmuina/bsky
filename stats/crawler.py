@@ -124,6 +124,8 @@ class Crawler:
     def _pull_actors(self):
         from stats.models import Actor
 
+        logging.info(f"PULL of Actors started")
+
         Actor.objects.all().update(active=False)
 
         for did in self._list_repos():
@@ -135,6 +137,8 @@ class Crawler:
                     exc_info=True,
                     stack_info=True,
                 )
+
+        logging.info("PULL of Actors finished")
 
     def run(self):
         pull_fn = {
