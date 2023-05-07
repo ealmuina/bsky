@@ -110,8 +110,8 @@ class Crawler:
             actor_data = self._get_profile(repo_description["handle"])
 
             created_at = timezone.now()
-            if actor_data.get("indexedAt"):
-                created_at = date_parser.parse(created_at)
+            if indexed_at := actor_data.get("indexedAt"):
+                created_at = date_parser.parse(indexed_at)
 
             Actor.objects.create(
                 did=did,
