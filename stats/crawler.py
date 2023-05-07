@@ -1,15 +1,13 @@
 import enum
 import logging
 import os
-import string
-import sys
 import time
 
 import django
 import requests
 from dateutil import parser as date_parser
 from django.utils import timezone
-from tqdm import tqdm
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 
 class Entity(enum.IntEnum):
@@ -28,152 +26,119 @@ class Crawler:
         self.jwt = None
         self._login()
 
+    def _describe_repo(self, did):
+        response = self._make_request(
+            f"{self.base_url}/com.atproto.repo.describeRepo",
+            params={
+                "repo": did
+            }
+        )
+        return response.json()
+
+    def _get_profile(self, handle):
+        response = self._make_request(
+            f"{self.base_url}/app.bsky.actor.getProfile",
+            params={
+                "actor": handle
+            },
+            headers={
+                "Authorization": f"Bearer {self.jwt}"
+            }
+        )
+        return response.json()
+
+    def _list_repos(self):
+        params = {
+            "limit": 1000
+        }
+
+        while True:
+            response = self._make_request(
+                f"{self.base_url}/com.atproto.sync.listRepos",
+                params=params
+            )
+            result = response.json()
+
+            for repo in result["repos"]:
+                yield repo["did"]
+
+            if next_cursor := result.get("cursor"):
+                time.sleep(5)
+                params["cursor"] = next_cursor
+            else:
+                break
+
     def _login(self):
-        resp = requests.post(
+        response = self._make_request(
             f"{self.base_url}/com.atproto.server.createSession",
+            method="POST",
             json={
                 "identifier": os.environ.get("BSKY_IDENTITY"),
                 "password": os.environ.get("BSKY_PASSWORD"),
             }
         )
-        self.jwt = resp.json().get("accessJwt")
+        self.jwt = response.json().get("accessJwt")
 
-    def _get_actors(self, query):
-        params = {
-            "term": query,
-            "limit": 100,
-        }
+    @retry(
+        wait=wait_exponential(min=4),
+        stop=stop_after_attempt(10),
+    )
+    def _make_request(self, url, method="GET", expected_code=200, **kwargs):
+        response = requests.request(method, url, **kwargs)
 
-        while True:
-            response = requests.get(
-                f"{self.base_url}/app.bsky.actor.searchActors",
-                params=params,
-                headers={
-                    "Authorization": f"Bearer {self.jwt}"
-                }
-            )
-            result = response.json()
-
-            if response.status_code != requests.codes.OK:
-                if result.get("error") == "ExpiredToken":
-                    self._login()
-                    continue
-                else:
-                    logging.error(result)
-                    sys.exit()
-
-            for actor_data in result["actors"]:
-                yield actor_data
-
-            if next_cursor := result.get("cursor"):
-                time.sleep(5)
-                params["cursor"] = next_cursor
+        if response.status_code != expected_code:
+            if "ExpiredToken" in response.text:
+                self._login()
             else:
-                break
+                logging.warning(response.text)
+            raise AssertionError()
 
-    def _get_follows(self, actor):
-        params = {
-            "actor": actor.handle,
-            "limit": 100,
-        }
+        return response
 
-        while True:
-            response = requests.get(
-                f"{self.base_url}/app.bsky.graph.getFollows",
-                params=params,
-                headers={
-                    "Authorization": f"Bearer {self.jwt}"
-                }
+    def _process_actor(self, did):
+        from stats.models import Actor
+
+        try:
+            # Update
+            actor = Actor.objects.get(did=did)
+            actor.active = True
+            actor.save()
+
+        except Actor.DoesNotExist:
+            # Create
+            repo_description = self._describe_repo(did)
+            actor_data = self._get_profile(repo_description["handle"])
+
+            created_at = timezone.now()
+            if actor_data.get("indexedAt"):
+                created_at = date_parser.parse(created_at)
+
+            Actor.objects.create(
+                did=did,
+                handle=repo_description["handle"],
+                display_name=actor_data.get("displayName"),
+                description=actor_data.get("description"),
+                created_at=created_at,
             )
-            result = response.json()
-
-            if response.status_code != requests.codes.OK:
-                if result.get("error") == "ExpiredToken":
-                    self._login()
-                    continue
-                else:
-                    logging.error(result)
-                    sys.exit()
-
-            for follow_data in result["follows"]:
-                yield follow_data
-
-            if next_cursor := result.get("cursor"):
-                time.sleep(5)
-                params["cursor"] = next_cursor
-            else:
-                break
 
     def _pull_actors(self):
         from stats.models import Actor
 
         Actor.objects.all().update(active=False)
 
-        for q in tqdm(string.ascii_lowercase):
-            for actor_data in tqdm(self._get_actors(q)):
-                try:
-                    self._process_actor(actor_data)
-                except:
-                    logging.exception(
-                        f"Error processing @{actor_data.get('handle')}",
-                        exc_info=True,
-                        stack_info=True,
-                    )
-
-    def _pull_follows(self):
-        from stats.models import Actor, Follow
-
-        Follow.objects.all().update(active=False)
-
-        for actor in tqdm(Actor.objects.all().iterator()):
-            for follow_data in tqdm(self._get_follows(actor)):
-                try:
-                    self._process_follow(actor, follow_data)
-                except:
-                    logging.exception(
-                        f"Error processing follow @{actor.handle} -> @{follow_data.get('handle')}",
-                        exc_info=True,
-                        stack_info=True,
-                    )
-
-    def _process_actor(self, actor_data):
-        from stats.models import Actor
-
-        defaults = {
-            "handle": actor_data.get("handle"),
-            "display_name": actor_data.get("displayName"),
-            "description": actor_data.get("description"),
-            "active": True,
-        }
-        if indexed_at := actor_data.get("indexedAt"):
-            defaults["indexed_at"] = date_parser.parse(indexed_at)
-
-        Actor.objects.update_or_create(
-            did=actor_data.get("did"),
-            defaults=defaults,
-        )
-
-    def _process_follow(self, from_actor, follow_data):
-        from stats.models import Actor, Follow
-
-        to_actor = Actor.objects.filter(
-            handle=follow_data.get("handle")
-        ).first()
-
-        if to_actor:
-            Follow.objects.update_or_create(
-                from_actor=from_actor,
-                to_actor=to_actor,
-                defaults={
-                    "active": True,
-                    "last_seen": timezone.now(),
-                }
-            )
+        for did in self._list_repos():
+            try:
+                self._process_actor(did)
+            except:
+                logging.exception(
+                    f"Error processing did: '{did}'",
+                    exc_info=True,
+                    stack_info=True,
+                )
 
     def run(self):
         pull_fn = {
             Entity.ACTOR: self._pull_actors,
-            Entity.FOLLOW: self._pull_follows,
         }
 
         for entity in self.entities:
