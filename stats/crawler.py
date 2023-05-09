@@ -125,18 +125,24 @@ class Crawler:
         from stats.models import Actor
 
         logging.info(f"PULL of Actors started")
-
-        Actor.objects.all().update(active=False)
+        now = timezone.now()
 
         for did in self._list_repos():
             try:
                 self._process_actor(did)
             except:
                 logging.exception(
-                    f"Error processing did: '{did}'",
+                    f"Error processing DID: '{did}'",
                     exc_info=True,
                     stack_info=True,
                 )
+
+        # Set those actors that were not processed as inactive
+        Actor.objects.filter(
+            updated_at__lt=now
+        ).update(
+            active=False
+        )
 
         logging.info("PULL of Actors finished")
 
